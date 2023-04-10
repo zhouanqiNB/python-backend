@@ -1,6 +1,8 @@
-from flask import Flask
+from flask import Flask, current_app, redirect, url_for, request
 from neo4j import GraphDatabase
 from query_all import query_all_handler
+from get_node import get_node_handler
+import json
 
 app = Flask(__name__)
 
@@ -10,13 +12,23 @@ session = driver.session(database="neo4j")
 
 
 @app.route('/')
-def hello_world():  # put application's code heres
+def hello_world():
     return 'Hello World!'
 
 
 @app.route('/query_all')
-def query_all():  # put application's code here
+def query_all():
     res = query_all_handler(session)
+    return res
+
+
+@app.route('/get_node', methods=["POST"])
+def get_node():
+    # get params from form
+    node_id = request.form.get("node_id")
+    res = get_node_handler(session, node_id)
+
+    # res = get_node_handler(session)
     return res
 
 

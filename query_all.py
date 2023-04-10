@@ -23,7 +23,6 @@ def do_query_all_node(tx):
     """
     query = "MATCH (n) return n"
     records = tx.run(query)
-    i = 0
     res = []
     for record in records:
         node_id = int(record.get('n').element_id[39:])
