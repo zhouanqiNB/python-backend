@@ -2,6 +2,7 @@ from flask import Flask, current_app, redirect, url_for, request
 from neo4j import GraphDatabase
 from query_all import query_all_handler
 from get_node import get_node_handler
+from get_relationship import get_relationship_handler
 import json
 
 app = Flask(__name__)
@@ -27,8 +28,14 @@ def get_node():
     # get params from form
     node_id = request.form.get("node_id")
     res = get_node_handler(session, node_id)
+    return res
 
-    # res = get_node_handler(session)
+
+@app.route('/get_relationship', methods=["POST"])
+def get_relationship():
+    # get params from form
+    relationship_id = request.form.get("relationship_id")
+    res = get_relationship_handler(session, relationship_id)
     return res
 
 

@@ -6,7 +6,6 @@ def get_node_handler(session, node_id):
 def query_node_by_id(tx, node_id):
     query = "MATCH (n) WHERE ID(n) = " + node_id + " return n"
     records = tx.run(query)
-    i = 0
     res = {}
     for record in records:
         node = record.get('n')
