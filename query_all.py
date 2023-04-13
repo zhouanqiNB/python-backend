@@ -22,14 +22,23 @@ def do_query_all_node(tx):
         labels
     """
     query = "MATCH (n) return n"
+    query2 = "match (n)-[]-() return ID(n) as id,count(*) as count"
     records = tx.run(query)
+    records2 = tx.run(query2)
+    id2EdgeCount = {}
+    for record in records2:
+        id2EdgeCount[record.get("id")] = record.get("count")
     res = []
     for record in records:
         node_id = int(record.get('n').element_id[39:])
         labels = list(record.get('n').labels)
+        edgeCount = 1
+        if node_id in id2EdgeCount:
+            edgeCount = id2EdgeCount[node_id]
         res.append({
             "node_id": node_id,
-            "labels": labels
+            "label": labels[0],
+            "value": edgeCount
         })
     # print(res)
     return res

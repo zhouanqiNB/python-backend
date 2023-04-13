@@ -20,7 +20,7 @@ def hello_world():
 @app.route('/query_all')
 def query_all():
     res = query_all_handler(session)
-    return res
+    return json.loads(res)
 
 
 @app.route('/get_node', methods=["POST"])
@@ -28,7 +28,7 @@ def get_node():
     # get params from form
     node_id = request.form.get("node_id")
     res = get_node_handler(session, node_id)
-    return res
+    return json.loads(res)
 
 
 @app.route('/get_relationship', methods=["POST"])
@@ -36,7 +36,7 @@ def get_relationship():
     # get params from form
     relationship_id = request.form.get("relationship_id")
     res = get_relationship_handler(session, relationship_id)
-    return res
+    return json.loads(res)
 
 
 if __name__ == '__main__':
