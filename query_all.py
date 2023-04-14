@@ -65,8 +65,8 @@ def do_query_all_relationship(tx):
 
         res.append({
             "relationship_id": relationship_id,
-            "node_id_1": node_id_1,
-            "node_id_2": node_id_2
+            "source": node_id_1,
+            "target": node_id_2
         })
 
     return res

@@ -7,7 +7,8 @@ import json
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, resources=r'/*')
+# CORS(app, resources=r'/*')
+CORS(app, supports_credentials=True)
 
 driver = GraphDatabase.driver("bolt://localhost:7687",
                               auth=("neo4j", "12345678"))
