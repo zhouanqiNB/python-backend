@@ -6,7 +6,7 @@ def query_all_handler(session):
     relationship_list = session.execute_read(do_query_all_relationship)
     res = {
         "nodes": node_list,
-        "relationships": relationship_list
+        "links": relationship_list
     }
     # print(json.dumps(res))
     return json.dumps(res)
