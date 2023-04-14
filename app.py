@@ -4,8 +4,10 @@ from query_all import query_all_handler
 from get_node import get_node_handler
 from get_relationship import get_relationship_handler
 import json
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app, resources=r'/*')
 
 driver = GraphDatabase.driver("bolt://localhost:7687",
                               auth=("neo4j", "12345678"))
@@ -40,4 +42,4 @@ def get_relationship():
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(host="0.0.0.0", threaded=True, debug=False)
