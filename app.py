@@ -31,7 +31,7 @@ def get_node():
     # get params from form
     node_id = request.form.get("node_id")
     res = get_node_handler(session, node_id)
-    return json.loads(res)
+    return res
 
 
 @app.route('/get_relationship', methods=["POST"])
@@ -39,7 +39,7 @@ def get_relationship():
     # get params from form
     relationship_id = request.form.get("relationship_id")
     res = get_relationship_handler(session, relationship_id)
-    return json.loads(res)
+    return res
 
 
 if __name__ == '__main__':
