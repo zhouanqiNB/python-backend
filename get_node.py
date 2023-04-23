@@ -8,7 +8,7 @@ def query_node_by_id(tx, node_id):
     records = tx.run(query)
     res = {}
     for record in records:
-        node = record.get('n')
+        node = record.get("n")
 
         node_properties = {}
         for key in node:
@@ -17,7 +17,7 @@ def query_node_by_id(tx, node_id):
         res = {
             "element_id": int(node.element_id[39:]),
             "labels": list(node.labels),
-            "properties": node_properties
+            "properties": node_properties,
         }
     # print(res)
     return res

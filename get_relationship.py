@@ -8,7 +8,7 @@ def query_relationship_by_id(tx, relationship_id):
     records = tx.run(query)
     res = {}
     for record in records:
-        relationship = record.get('r')
+        relationship = record.get("r")
 
         print(relationship)
         relationship_properties = {}
@@ -20,7 +20,7 @@ def query_relationship_by_id(tx, relationship_id):
             "start_node_id": int(relationship.start_node.element_id[39:]),
             "end_node_id": int(relationship.end_node.element_id[39:]),
             "type": relationship.type,
-            "properties": relationship_properties
+            "properties": relationship_properties,
         }
     # print(res)
     return res
