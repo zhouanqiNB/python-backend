@@ -15,7 +15,7 @@ CORS(app, supports_credentials=True)
 driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "12345678"))
 session = driver.session(database="neo4j")
 
-db_word_set = analyze_database(session)
+db_word_set, db_word_2_attr = analyze_database(session)
 
 
 @app.route("/")
@@ -54,5 +54,4 @@ def nl_query():
 
 
 if __name__ == "__main__":
-    analyze_database()
     app.run(host="0.0.0.0", threaded=True, debug=False)
