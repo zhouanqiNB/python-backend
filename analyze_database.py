@@ -12,6 +12,7 @@ def analyze_database(session):
     return word_set, word_2_attr
 
 
+# 标记word属性的结构
 class WordAttribute:
     n_type = False  # 节点的类型
     n_property_key = False  # 节点property的key
@@ -24,15 +25,18 @@ class WordAttribute:
     r_property_value_2_key = ""  # 关系property的value对应的key
 
     def __str__(self):
-        return "n_type: {}; n_property_key: {}; n_property_value: {}; n_property_value_2_key: {};\nr_type: {}; r_property_key: {}; r_property_value: {}; r_property_value_2_key: {};\n".format(
-            self.n_type,
-            self.n_property_key,
-            self.n_property_value,
-            self.n_property_value_2_key,
-            self.r_type,
-            self.r_property_key,
-            self.r_property_value,
-            self.r_property_value_2_key,
+        return (
+            "n_type: {}; n_property_key: {}; n_property_value: {}; n_property_value_2_key: {};\nr_type: {}; "
+            "r_property_key: {}; r_property_value: {}; r_property_value_2_key: {};\n".format(
+                self.n_type,
+                self.n_property_key,
+                self.n_property_value,
+                self.n_property_value_2_key,
+                self.r_type,
+                self.r_property_key,
+                self.r_property_value,
+                self.r_property_value_2_key,
+            )
         )
 
 
@@ -49,16 +53,12 @@ class WordAttribute:
 
 
 def process_word_set(tx):
-    # 词形还原
-
     word_set = set()
     word_2_attr = {}
 
     word_set, word_2_attr = get_node_word_set(tx, word_set, word_2_attr)
-    print(word_set)
-    for key in word_2_attr:
-        print(key)
-        print(word_2_attr[key])
+    word_set, word_2_attr = get_relationship_word_set(tx, word_set, word_2_attr)
+    # print(word_2_attr["reviewed"])
     return word_set, word_2_attr
 
 
@@ -77,7 +77,24 @@ def get_node_word_set(tx, word_set, word_2_attr):
         for key in node:
             do_node_key_value(str(node[key]), key, word_set, word_2_attr)
 
-    # relationship
+    return word_set, word_2_attr
+
+
+def get_relationship_word_set(tx, word_set, word_2_attr):
+    query = "MATCH ()-[r]->() return r"
+    records = tx.run(query)
+    for record in records:
+        relationship = record["r"]
+        # print(relationship)
+        # print(relationship.type)
+        # r type
+        do_relationship_type(relationship.type, word_set, word_2_attr)
+
+        # r properties
+        for key in relationship:
+            do_relationship_key_value(
+                str(relationship[key]), key, word_set, word_2_attr
+            )
 
     return word_set, word_2_attr
 
@@ -91,7 +108,22 @@ def do_node_label(labels, word_set, word_2_attr):
         word_2_attr[labelx].n_type = True
 
 
+def do_relationship_type(r_type, word_set, word_2_attr):
+    r_type_tokens = r_type.split("_") if "_" in r_type else [r_type]
+
+    stop_words = set(stopwords.words("english"))
+    r_type_tokens = [w for w in r_type_tokens if not w in stop_words]
+
+    for r_type_token in r_type_tokens:
+        r_type_tokenx = formalize_token(r_type_token)
+        word_set.add(r_type_tokenx)
+        if r_type_tokenx not in word_2_attr:
+            word_2_attr[r_type_tokenx] = WordAttribute()
+        word_2_attr[r_type_tokenx].r_type = True
+
+
 def do_node_key_value(value, key, word_set, word_2_attr):
+    # print(value)
     keyx = formalize_token(key)
     word_set.add(keyx)
     if keyx not in word_2_attr:
@@ -114,6 +146,31 @@ def do_node_key_value(value, key, word_set, word_2_attr):
             word_2_attr[value_tokenx] = WordAttribute()
         word_2_attr[value_tokenx].n_property_value = True
         word_2_attr[value_tokenx].n_property_value_2_key = key
+
+
+def do_relationship_key_value(value, key, word_set, word_2_attr):
+    keyx = formalize_token(key)
+    word_set.add(keyx)
+    if keyx not in word_2_attr:
+        word_2_attr[keyx] = WordAttribute()
+    word_2_attr[keyx].r_property_key = True
+
+    # value 可能是句子
+    # tokenize value, 不保留标点
+    tokenizer = RegexpTokenizer(r"\w+")
+    value_tokens = tokenizer.tokenize(value)
+
+    # 去除stopwords
+    stop_words = set(stopwords.words("english"))
+    value_tokens = [w for w in value_tokens if not w in stop_words]
+
+    for value_token in value_tokens:
+        value_tokenx = formalize_token(value_token)  # 还原词性和统一小写
+        word_set.add(value_tokenx)
+        if value_tokenx not in word_2_attr:
+            word_2_attr[value_tokenx] = WordAttribute()
+        word_2_attr[value_tokenx].r_property_value = True
+        word_2_attr[value_tokenx].r_property_value_2_key = key
 
 
 def formalize_token(str):
