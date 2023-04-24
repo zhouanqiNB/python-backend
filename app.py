@@ -9,13 +9,15 @@ import json
 from flask_cors import CORS
 
 app = Flask(__name__)
-# CORS(app, resources=r'/*')
+
+# 解决localhost无法请求问题
 CORS(app, supports_credentials=True)
 
 driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "12345678"))
 session = driver.session(database="neo4j")
 
 db_word_set, db_word_2_attr = analyze_database(session)
+print("database analyzing done.")
 
 
 @app.route("/")
