@@ -9,22 +9,54 @@ from nltk.tokenize import RegexpTokenizer
 
 def analyze_database(session):
     word_set, word_2_attr = session.execute_read(process_word_set)
+
     return word_set, word_2_attr
 
 
 # 标记word属性的结构
 class WordAttribute:
     n_type = False  # 节点的类型
+    n_type_original = ""
     n_property_key = False  # 节点property的key
     n_property_value = False  # 节点property的value 及其对应的key
-    n_property_value_2_key = ""  # 节点property的value对应的key
+    # 同一个词可能是两个key的value。
+    n_property_value_2_key = set()  # 节点property的value对应的key
 
     r_type = False  # 关系的类型
+    n_type_original = ""
     r_property_key = False  # 关系property的key
     r_property_value = False  # 关系property的value 及其对应的key
-    r_property_value_2_key = ""  # 关系property的value对应的key
+    r_property_value_2_key = set()  # 关系property的value对应的key
+
+    def __init__(self) -> None:
+        self.n_type = False  # 节点的类型
+        self.n_type_original = ""
+        self.n_property_key = False  # 节点property的key
+        self.n_property_value = False  # 节点property的value 及其对应的key
+        self.n_property_value_2_key = set()  # 节点property的value对应的key
+
+        self.r_type = False  # 关系的类型
+        self.n_type_original = ""
+        self.r_property_key = False  # 关系property的key
+        self.r_property_value = False  # 关系property的value 及其对应的key
+        self.r_property_value_2_key = set()  # 关系property的value对应的key
 
     def __str__(self):
+        return (
+            "n_type: {}; n_property_key: {}; n_property_value: {}; n_property_value_2_key: {};\nr_type: {}; "
+            "r_property_key: {}; r_property_value: {}; r_property_value_2_key: {};\n".format(
+                self.n_type,
+                self.n_property_key,
+                self.n_property_value,
+                self.n_property_value_2_key,
+                self.r_type,
+                self.r_property_key,
+                self.r_property_value,
+                self.r_property_value_2_key,
+            )
+        )
+
+    def to_string(self):
         return (
             "n_type: {}; n_property_key: {}; n_property_value: {}; n_property_value_2_key: {};\nr_type: {}; "
             "r_property_key: {}; r_property_value: {}; r_property_value_2_key: {};\n".format(
@@ -71,11 +103,13 @@ def get_node_word_set(tx, word_set, word_2_attr):
     for record in records:
         node = record["n"]
         # node label
-        do_node_label(list(node.labels), word_set, word_2_attr)
+        word_set, word_2_attr = do_node_label(list(node.labels), word_set, word_2_attr)
 
         # node properties
         for key in node:
-            do_node_key_value(str(node[key]), key, word_set, word_2_attr)
+            word_set, word_2_attr = do_node_key_value(
+                str(node[key]), key, word_set, word_2_attr
+            )
 
     return word_set, word_2_attr
 
@@ -88,11 +122,13 @@ def get_relationship_word_set(tx, word_set, word_2_attr):
         # print(relationship)
         # print(relationship.type)
         # r type
-        do_relationship_type(relationship.type, word_set, word_2_attr)
+        word_set, word_2_attr = do_relationship_type(
+            relationship.type, word_set, word_2_attr
+        )
 
         # r properties
         for key in relationship:
-            do_relationship_key_value(
+            word_set, word_2_attr = do_relationship_key_value(
                 str(relationship[key]), key, word_set, word_2_attr
             )
 
@@ -106,6 +142,8 @@ def do_node_label(labels, word_set, word_2_attr):
         if labelx not in word_2_attr:
             word_2_attr[labelx] = WordAttribute()
         word_2_attr[labelx].n_type = True
+        word_2_attr[labelx].n_type_original = label
+    return word_set, word_2_attr
 
 
 def do_relationship_type(r_type, word_set, word_2_attr):
@@ -120,9 +158,13 @@ def do_relationship_type(r_type, word_set, word_2_attr):
         if r_type_tokenx not in word_2_attr:
             word_2_attr[r_type_tokenx] = WordAttribute()
         word_2_attr[r_type_tokenx].r_type = True
+        word_2_attr[r_type_tokenx].r_type_original = r_type
+    return word_set, word_2_attr
 
 
 def do_node_key_value(value, key, word_set, word_2_attr):
+    # print(key)
+    # print(value)
     # print(value)
     keyx = formalize_token(key)
     word_set.add(keyx)
@@ -145,7 +187,8 @@ def do_node_key_value(value, key, word_set, word_2_attr):
         if value_tokenx not in word_2_attr:
             word_2_attr[value_tokenx] = WordAttribute()
         word_2_attr[value_tokenx].n_property_value = True
-        word_2_attr[value_tokenx].n_property_value_2_key = key
+        word_2_attr[value_tokenx].n_property_value_2_key.add(keyx)
+    return word_set, word_2_attr
 
 
 def do_relationship_key_value(value, key, word_set, word_2_attr):
@@ -170,7 +213,8 @@ def do_relationship_key_value(value, key, word_set, word_2_attr):
         if value_tokenx not in word_2_attr:
             word_2_attr[value_tokenx] = WordAttribute()
         word_2_attr[value_tokenx].r_property_value = True
-        word_2_attr[value_tokenx].r_property_value_2_key = key
+        word_2_attr[value_tokenx].r_property_value_2_key.add(keyx)
+    return word_set, word_2_attr
 
 
 def formalize_token(str):
