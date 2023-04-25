@@ -23,7 +23,7 @@ class WordAttribute:
     n_property_value_2_key = set()  # 节点property的value对应的key
 
     r_type = False  # 关系的类型
-    n_type_original = ""
+    r_type_original = ""
     r_property_key = False  # 关系property的key
     r_property_value = False  # 关系property的value 及其对应的key
     r_property_value_2_key = set()  # 关系property的value对应的key
@@ -36,20 +36,22 @@ class WordAttribute:
         self.n_property_value_2_key = set()  # 节点property的value对应的key
 
         self.r_type = False  # 关系的类型
-        self.n_type_original = ""
+        self.r_type_original = ""
         self.r_property_key = False  # 关系property的key
         self.r_property_value = False  # 关系property的value 及其对应的key
         self.r_property_value_2_key = set()  # 关系property的value对应的key
 
     def __str__(self):
         return (
-            "n_type: {}; n_property_key: {}; n_property_value: {}; n_property_value_2_key: {};\nr_type: {}; "
-            "r_property_key: {}; r_property_value: {}; r_property_value_2_key: {};\n".format(
+            "n_type: {};n_type_original:{}; n_property_key: {}; n_property_value: {}; n_property_value_2_key: {};\nr_type: {}; "
+            "r_property_key: {};r_type_original:{}; r_property_value: {}; r_property_value_2_key: {};\n".format(
                 self.n_type,
+                self.n_type_original,
                 self.n_property_key,
                 self.n_property_value,
                 self.n_property_value_2_key,
                 self.r_type,
+                self.r_type_original,
                 self.r_property_key,
                 self.r_property_value,
                 self.r_property_value_2_key,
@@ -58,13 +60,15 @@ class WordAttribute:
 
     def to_string(self):
         return (
-            "n_type: {}; n_property_key: {}; n_property_value: {}; n_property_value_2_key: {};\nr_type: {}; "
-            "r_property_key: {}; r_property_value: {}; r_property_value_2_key: {};\n".format(
+            "n_type: {};n_type_original:{}; n_property_key: {}; n_property_value: {}; n_property_value_2_key: {};\nr_type: {}; "
+            "r_property_key: {};r_type_original:{}; r_property_value: {}; r_property_value_2_key: {};\n".format(
                 self.n_type,
+                self.n_type_original,
                 self.n_property_key,
                 self.n_property_value,
                 self.n_property_value_2_key,
                 self.r_type,
+                self.r_type_original,
                 self.r_property_key,
                 self.r_property_value,
                 self.r_property_value_2_key,
