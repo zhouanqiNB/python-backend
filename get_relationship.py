@@ -4,13 +4,17 @@ def get_relationship_handler(session, relationship_id):
 
 
 def query_relationship_by_id(tx, relationship_id):
-    query = "MATCH ()-[r]->() WHERE ID(r) = " + relationship_id + " return r"
+    query = "MATCH (n1)-[r]->(n2) WHERE ID(r) = " + relationship_id + " return n1,n2,r"
     records = tx.run(query)
     res = {}
     for record in records:
         relationship = record.get("r")
+        n1 = record.get("n1")
+        n2 = record.get("n2")
 
         print(relationship)
+        print(n1)
+        print(n2)
         relationship_properties = {}
         for key in relationship:
             relationship_properties[key] = relationship[key]

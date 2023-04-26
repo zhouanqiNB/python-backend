@@ -18,7 +18,6 @@ session = driver.session(database="neo4j")
 
 db_word_set, db_word_2_attr = analyze_database(session)
 print("database analyzing done.")
-nl_query_handler(session, "", db_word_set, db_word_2_attr)
 
 
 @app.route("/")

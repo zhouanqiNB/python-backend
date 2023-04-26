@@ -78,9 +78,7 @@ class QueryResult:
 
     def __init__(self, query, nodes, links) -> None:
         self.query_str = query
-        self.query_records = {}
-        self.query_records["nodes"] = nodes
-        self.query_records["links"] = links
+        self.query_records = {"nodes": nodes, "links": links}
 
     def __str__(self):
         return "query_str:{}; query_records:{}\n".format(
@@ -101,7 +99,7 @@ class QueryResult:
 def nl_query_handler(session, query_str, word_set, word_2_attr) -> str:
     query_response = QueryResp()
 
-    query_str = "movie released in 1992"
+    # query_str = "movie released in 1992"
     # MATCH (n: Movie { released: 1992 }) return n
 
     # 分词, 不保留标点
