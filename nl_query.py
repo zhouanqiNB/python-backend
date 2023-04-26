@@ -58,7 +58,7 @@ class CypherAttr:
 # 额这个n or r的标签的问题我还是 专门写一个模块吧
 # 其实子串模糊匹配是可以的，但是大小写要对：match()-[r]->() where type(r) contains "ACT"  return r
 def nl_query_handler(session, query_str, word_set, word_2_attr):
-    query_str = "movie with Tom Hanks"
+    query_str = "movie released in 1992"
     # MATCH (n: Movie { released: 1992 }) return n
 
     # 分词, 不保留标点
@@ -68,16 +68,111 @@ def nl_query_handler(session, query_str, word_set, word_2_attr):
     query_attr = analyze_query(query_tokens, word_set, word_2_attr)
     print(query_attr)
 
-    cypher_query_n = "MATCH (n) "
+    cypher_query_n = pack_cypher_n(query_attr)
     cypher_query_r = "MATCH ()-[r]-() "
 
-    print(cypher_query_n)
+    # print(cypher_query_n)
 
     print(word_2_attr["tom"])
     return word_2_attr["acted"].to_string()
 
 
-def analyze_query(query_tokens, word_set, word_2_attr):
+def pack_cypher_n(query_attr: CypherAttr) -> list:
+    """根据统计信息 返回可能的查询节点的cypher语句
+
+    Args:
+        query_attr (CypherAttr)
+
+    Returns:
+        list: 可能的cypher语句列表
+    """
+    # 第一可能是完全匹配的key和value
+
+    # 目前全部按照and来算
+    matched_kvs = get_matched_kv(query_attr)
+    print(matched_kvs)
+    cypher_n = []
+    for label in query_attr.n_type:
+        cypher_n.extend(generate_cypher_n(label, matched_kvs))
+    print(cypher_n)
+    return "ok"
+
+
+def generate_cypher_n(label, kvs):
+    res = []
+
+    if label == "":
+        if len(kvs) == 0:
+            cypher = "MATCH (n) RETURN n"
+            res.append(cypher)
+            return res
+        else:
+            cypher = "MATCH (n) WHERE n." + generate_property_condition(
+                kvs[0][0], kvs[0][1]
+            )
+            kvs = kvs[1:]
+            for kv in kvs:
+                cypher += " AND n." + generate_property_condition(kv[0], kv[1])
+            cypher += " RETURN n"
+            res.append(cypher)
+            return res
+    else:
+        # label condition
+        cypher = "MATCH (n) WHERE " + generate_label_condition(label)
+        for kv in kvs:
+            cypher += " AND n." + generate_property_condition(kv[0], kv[1])
+        cypher += " RETURN n"
+        res.append(cypher)
+        return res
+
+
+def generate_property_condition(key, value):
+    if not value.isnumeric():
+        return key + '=~"(?i).*' + value + '.*"'
+    else:
+        return key + "=" + value
+
+
+def generate_label_condition(label):
+    return '"' + label + '"' + " in LABELS(n)"
+
+
+def get_matched_kv(query_attr: CypherAttr) -> list:
+    """根据给定的统计信息 返回完全符合的key-value对
+
+    Args:
+        query_attr (CypherAttr)
+
+    Returns:
+        list: 返回根据query_attr给出的信息做好的kv对
+    """
+    matched_kvs = []
+    keys = query_attr.n_property_key
+    values = query_attr.n_property_value
+    value_2_keys = {}
+    for i in range(len(values)):
+        value_2_keys[values[i]] = query_attr.n_property_value_2_key[i]
+    # print(value_2_keys)
+    for value in value_2_keys:
+        for key in value_2_keys[value]:
+            if key in keys:
+                matched_kvs.append([key, value])
+
+    # print(matched_kvs)
+    return matched_kvs
+
+
+def analyze_query(query_tokens: list, word_set, word_2_attr) -> CypherAttr:
+    """将自然语言字符串分词后的token与数据集词库比对 返回统计信息
+
+    Args:
+        query_tokens (list): 自然语言字符串分词后的token
+        word_set (_type_)
+        word_2_attr (_type_)
+
+    Returns:
+        CypherAttr: 统计信息
+    """
     query_attr = CypherAttr()
 
     for query_token in query_tokens:
@@ -117,6 +212,16 @@ def analyze_query(query_tokens, word_set, word_2_attr):
 
 # 还没引入向量匹配，单纯地in和not in
 def do_matching(word_set, token):
+    """给定某个token和数据库字符集 返回匹配结果
+
+    Args:
+        word_set
+        token
+
+    Returns:
+        bool: 是否匹配到
+        matched_word_set: 匹配到的词集
+    """
     matched_word_set = []
     if token in word_set:
         matched_word_set.append(token)
