@@ -53,7 +53,7 @@ def nl_query():
     # get params from form
     nl_query_str = request.form.get("query_str")
     res = nl_query_handler(session, nl_query_str, db_word_set, db_word_2_attr)
-    return res
+    return json.loads(res)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 from nltk.tokenize import RegexpTokenizer
 from analyze_database import formalize_token
+import json
 
 
 class CypherAttr:
@@ -55,9 +56,51 @@ class CypherAttr:
         )
 
 
+class QueryResp:
+    query_results = []
+
+    def __init__(self) -> None:
+        self.query_results = []
+
+    def __str__(self):
+        return "query_results:{}\n".format(self.query_results)
+
+    def to_string(self):
+        return "query_results:{}\n".format(self.query_results)
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
+
+class QueryResult:
+    query_str = ""
+    query_records = {}
+
+    def __init__(self, query, nodes, links) -> None:
+        self.query_str = query
+        self.query_records = {}
+        self.query_records["nodes"] = nodes
+        self.query_records["links"] = links
+
+    def __str__(self):
+        return "query_str:{}; query_records:{}\n".format(
+            self.query_str, self.query_records
+        )
+
+    def to_string(self):
+        return "query_str:{}; query_records:{}\n".format(
+            self.query_str, self.query_records
+        )
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
+
 # 额这个n or r的标签的问题我还是 专门写一个模块吧
 # 其实子串模糊匹配是可以的，但是大小写要对：match()-[r]->() where type(r) contains "ACT"  return r
-def nl_query_handler(session, query_str, word_set, word_2_attr):
+def nl_query_handler(session, query_str, word_set, word_2_attr) -> str:
+    query_response = QueryResp()
+
     query_str = "movie released in 1992"
     # MATCH (n: Movie { released: 1992 }) return n
 
@@ -68,13 +111,22 @@ def nl_query_handler(session, query_str, word_set, word_2_attr):
     query_attr = analyze_query(query_tokens, word_set, word_2_attr)
     print(query_attr)
 
-    cypher_query_n = pack_cypher_n(query_attr)
-    cypher_query_r = "MATCH ()-[r]-() "
+    cypher_query_n_list = pack_cypher_n(query_attr)
+    print(cypher_query_n_list)
+    for query in cypher_query_n_list:
+        records = session.run(query)
+        nodes = []
+        for record in records:
+            nodes.append(int(record.get("n").element_id[39:]))
+        query_response.query_results.append(QueryResult(query, nodes, []))
+
+    print(query_response.to_json())
 
     # print(cypher_query_n)
+    # cypher_query_r = "MATCH ()-[r]-() "
 
-    print(word_2_attr["tom"])
-    return word_2_attr["acted"].to_string()
+    # print(word_2_attr["tom"])
+    return query_response.to_json()
 
 
 def pack_cypher_n(query_attr: CypherAttr) -> list:
@@ -90,12 +142,10 @@ def pack_cypher_n(query_attr: CypherAttr) -> list:
 
     # 目前全部按照and来算
     matched_kvs = get_matched_kv(query_attr)
-    print(matched_kvs)
-    cypher_n = []
+    cypher_n_list = []
     for label in query_attr.n_type:
-        cypher_n.extend(generate_cypher_n(label, matched_kvs))
-    print(cypher_n)
-    return "ok"
+        cypher_n_list.extend(generate_cypher_n(label, matched_kvs))
+    return cypher_n_list
 
 
 def generate_cypher_n(label, kvs):
@@ -128,13 +178,13 @@ def generate_cypher_n(label, kvs):
 
 def generate_property_condition(key, value):
     if not value.isnumeric():
-        return key + '=~"(?i).*' + value + '.*"'
+        return key + "=~'(?i).*" + value + ".*'"
     else:
         return key + "=" + value
 
 
 def generate_label_condition(label):
-    return '"' + label + '"' + " in LABELS(n)"
+    return "'" + label + "'" + " in LABELS(n)"
 
 
 def get_matched_kv(query_attr: CypherAttr) -> list:
