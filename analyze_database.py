@@ -184,9 +184,6 @@ def do_relationship_type(r_type, word_set, word_2_attr):
 
 
 def do_node_key_value(value, key, word_set, word_2_attr):
-    # print(key)
-    # print(value)
-    # print(value)
     keyx = formalize_token(key)
     word_set.add(keyx)
     if keyx not in word_2_attr:
@@ -238,7 +235,7 @@ def do_relationship_key_value(value, key, word_set, word_2_attr):
     return word_set, word_2_attr
 
 
-def formalize_token(str):
+def formalize_token(token):
     """词形还原和转化成小写"""
     lemmatizer = WordNetLemmatizer()
-    return lemmatizer.lemmatize(str).lower()
+    return lemmatizer.lemmatize(token).lower()

@@ -99,7 +99,7 @@ class QueryResult:
 def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) -> str:
     query_response = QueryResp()
 
-    query_str = "film publish in 1992"
+    # query_str = "film publish in 1992"
     # MATCH (n: Movie { released: 1992 }) return n
 
     # 分词, 不保留标点
@@ -111,6 +111,7 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
 
     cypher_query_n_list = pack_cypher_n(query_attr)
     print(cypher_query_n_list)
+    # execute every possible query and get results
     for query in cypher_query_n_list:
         records = session.run(query)
         nodes = []
@@ -125,14 +126,14 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
 
     # print(word_2_attr["tom"])
 
-    res1 = QueryResult("test1", [1], [10])
-    res2 = QueryResult("test2", [2, 3], [6, 8])
+    # res1 = QueryResult("test1", [1], [10])
+    # res2 = QueryResult("test2", [2, 3], [6, 8])
 
-    resp = QueryResp()
-    resp.query_results.append(res1)
-    resp.query_results.append(res2)
+    # resp = QueryResp()
+    # resp.query_results.append(res1)
+    # resp.query_results.append(res2)
 
-    return resp.to_json()
+    return query_response.to_json()
 
 
 def pack_cypher_n(query_attr: CypherAttr) -> list:
