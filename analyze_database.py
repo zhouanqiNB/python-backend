@@ -8,9 +8,9 @@ from nltk.tokenize import RegexpTokenizer
 
 
 def analyze_database(session):
-    word_set, word_2_attr = session.execute_read(process_word_set)
+    word_set_syn, word_set, word_2_attr = session.execute_read(process_word_set)
 
-    return word_set, word_2_attr
+    return word_set_syn, word_set, word_2_attr
 
 
 # 标记word属性的结构
@@ -95,7 +95,24 @@ def process_word_set(tx):
     word_set, word_2_attr = get_node_word_set(tx, word_set, word_2_attr)
     word_set, word_2_attr = get_relationship_word_set(tx, word_set, word_2_attr)
     # print(word_2_attr["reviewed"])
-    return word_set, word_2_attr
+
+    word_set_syn = dict()
+    # all words
+    for word in word_set:
+        word_set_syn[word] = set()
+
+    # for every word, get its syns and add into set
+    for word in word_set:
+        for syn_set in wordnet.synsets(word):
+            syn_words = syn_set.lemma_names()
+            for i in syn_words:
+                if i == word:
+                    continue
+                if i not in word_set_syn:
+                    word_set_syn[i] = set()
+                word_set_syn[i].add(word)
+
+    return word_set_syn, word_set, word_2_attr
 
 
 def get_node_word_set(tx, word_set, word_2_attr):

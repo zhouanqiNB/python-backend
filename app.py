@@ -16,7 +16,7 @@ CORS(app, supports_credentials=True)
 driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "12345678"))
 session = driver.session(database="neo4j")
 
-db_word_set, db_word_2_attr = analyze_database(session)
+db_word_set_syn, db_word_set, db_word_2_attr = analyze_database(session)
 print("database analyzing done.")
 
 
@@ -51,7 +51,7 @@ def get_relationship():
 def nl_query():
     # get params from form
     nl_query_str = request.form.get("query_str")
-    res = nl_query_handler(session, nl_query_str, db_word_set, db_word_2_attr)
+    res = nl_query_handler(session, nl_query_str, db_word_set_syn, db_word_set, db_word_2_attr)
     return json.loads(res)
 
 

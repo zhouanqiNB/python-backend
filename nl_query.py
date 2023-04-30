@@ -96,17 +96,17 @@ class QueryResult:
 
 # 额这个n or r的标签的问题我还是 专门写一个模块吧
 # 其实子串模糊匹配是可以的，但是大小写要对：match()-[r]->() where type(r) contains "ACT"  return r
-def nl_query_handler(session, query_str, word_set, word_2_attr) -> str:
+def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) -> str:
     query_response = QueryResp()
 
-    # query_str = "movie released in 1992"
+    query_str = "film released in 1992"
     # MATCH (n: Movie { released: 1992 }) return n
 
     # 分词, 不保留标点
     tokenizer = RegexpTokenizer(r"\w+")
     query_tokens = tokenizer.tokenize(query_str)
 
-    query_attr = analyze_query(query_tokens, word_set, word_2_attr)
+    query_attr = analyze_query(query_tokens, word_set_syn, word_set, word_2_attr)
     print(query_attr)
 
     cypher_query_n_list = pack_cypher_n(query_attr)
@@ -124,7 +124,15 @@ def nl_query_handler(session, query_str, word_set, word_2_attr) -> str:
     # cypher_query_r = "MATCH ()-[r]-() "
 
     # print(word_2_attr["tom"])
-    return query_response.to_json()
+
+    res1 = QueryResult("test1", [1], [10])
+    res2 = QueryResult("test2", [2, 3], [6, 8])
+
+    resp = QueryResp()
+    resp.query_results.append(res1)
+    resp.query_results.append(res2)
+
+    return resp.to_json()
 
 
 def pack_cypher_n(query_attr: CypherAttr) -> list:
@@ -141,8 +149,12 @@ def pack_cypher_n(query_attr: CypherAttr) -> list:
     # 目前全部按照and来算
     matched_kvs = get_matched_kv(query_attr)
     cypher_n_list = []
-    for label in query_attr.n_type:
-        cypher_n_list.extend(generate_cypher_n(label, matched_kvs))
+    if len(query_attr.n_type) == 0:
+        cypher_n_list.extend(generate_cypher_n("", matched_kvs))
+    else:
+        for label in query_attr.n_type:
+            cypher_n_list.extend(generate_cypher_n(label, matched_kvs))
+
     return cypher_n_list
 
 
@@ -210,23 +222,23 @@ def get_matched_kv(query_attr: CypherAttr) -> list:
     return matched_kvs
 
 
-def analyze_query(query_tokens: list, word_set, word_2_attr) -> CypherAttr:
+def analyze_query(query_tokens: list, word_set_syn, word_set, word_2_attr) -> CypherAttr:
     """将自然语言字符串分词后的token与数据集词库比对 返回统计信息
 
-    Args:
-        query_tokens (list): 自然语言字符串分词后的token
-        word_set (_type_)
-        word_2_attr (_type_)
-
-    Returns:
-        CypherAttr: 统计信息
+        :param word_2_attr:
+        :param word_set:
+        :param query_tokens: 自然语言字符串分词后的token
+        :param word_set_syn:
     """
+
     query_attr = CypherAttr()
 
+    # 对每个token
     for query_token in query_tokens:
         query_token = formalize_token(query_token)
         # 是否匹配上，匹配上了哪些词
-        matched, matched_word_set = do_matching(word_set, query_token)
+        matched, matched_word_set = do_matching(word_set_syn, query_token)
+        print(matched_word_set)
         if not matched:
             continue
         # 对这个query_token匹配上的所有word，做统计
@@ -259,20 +271,27 @@ def analyze_query(query_tokens: list, word_set, word_2_attr) -> CypherAttr:
 
 
 # 还没引入向量匹配，单纯地in和not in
-def do_matching(word_set, token):
+def do_matching(word_set_syn, token):
     """给定某个token和数据库字符集 返回匹配结果
 
     Args:
-        word_set
-        token
-
+        :param token:
+        :param word_set_syn:
     Returns:
-        bool: 是否匹配到
-        matched_word_set: 匹配到的词集
+        :return bool: 是否匹配到
+        :return matched_word_set: 匹配到的词集
     """
     matched_word_set = []
-    if token in word_set:
-        matched_word_set.append(token)
+    # for every token
+    # if token in word_set_syn,
+    if token in word_set_syn:
+        if word_set_syn[token] == set():
+            matched_word_set.append(token)
+            return True, matched_word_set
+        else:
+            # 如果是匹配上同义词了，把同义词的可能原型都返回
+            for i in word_set_syn[token]:
+                matched_word_set.append(i)
         return True, matched_word_set
     else:
         return False, matched_word_set
