@@ -99,7 +99,7 @@ class QueryResult:
 def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) -> str:
     query_response = QueryResp()
 
-    query_str = "film released in 1992"
+    query_str = "film publish in 1992"
     # MATCH (n: Movie { released: 1992 }) return n
 
     # 分词, 不保留标点
@@ -222,13 +222,15 @@ def get_matched_kv(query_attr: CypherAttr) -> list:
     return matched_kvs
 
 
-def analyze_query(query_tokens: list, word_set_syn, word_set, word_2_attr) -> CypherAttr:
+def analyze_query(
+    query_tokens: list, word_set_syn, word_set, word_2_attr
+) -> CypherAttr:
     """将自然语言字符串分词后的token与数据集词库比对 返回统计信息
 
-        :param word_2_attr:
-        :param word_set:
-        :param query_tokens: 自然语言字符串分词后的token
-        :param word_set_syn:
+    :param word_2_attr:
+    :param word_set:
+    :param query_tokens: 自然语言字符串分词后的token
+    :param word_set_syn:
     """
 
     query_attr = CypherAttr()
