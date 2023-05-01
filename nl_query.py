@@ -114,8 +114,8 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
     # 根据 query_attr 得到可能的 query list
     cypher_query_n_list = pack_cypher_n(query_attr, word_2_attr)
     cypher_query_r_list = pack_cypher_r(query_attr, word_2_attr)
-    print(cypher_query_r_list)
     # print(cypher_query_n_list)
+    # print(cypher_query_r_list)
 
     # execute every possible query and get results
     for query in cypher_query_n_list:
@@ -145,6 +145,8 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
     # resp.query_results.append(res1)
     # resp.query_results.append(res2)
     # print(word_set_syn["person"])
+
+    # print(word_2_attr["albert"])
 
     return query_response.to_json()
 
@@ -215,7 +217,7 @@ def generate_cypher_r(r_type, kvs):
 
     if r_type == "":
         if len(kvs) == 0:
-            cypher = "MATCH ()-[n]-() RETURN DISTINCT r"
+            cypher = "MATCH ()-[n]-() RETURN DISTINCT n"
             res.append(cypher)
             return res
         else:
@@ -296,7 +298,7 @@ def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
 
 
 def analyze_query(
-    query_tokens: list, word_set_syn, word_set, word_2_attr
+        query_tokens: list, word_set_syn, word_set, word_2_attr
 ) -> CypherAttr:
     """将自然语言字符串分词后的token与数据集词库比对 返回统计信息
 
@@ -363,6 +365,7 @@ def do_matching(word_set_syn, word_set, token):
 
     matched_word_set = []
     # for every token,if token in word_set_syn
+    # print(token)
     for i in word_set_syn[token]:  # push all syns
         matched_word_set.append(i)
     if token in word_set:  # push itself
