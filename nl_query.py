@@ -154,13 +154,10 @@ def pack_cypher_r(query_attr: CypherAttr, word_2_attr) -> list:
     print(matched_kvs)
     cypher_r_list = []
     if len(query_attr.r_type) == 0:
-        print("len(query_attr.r_type) == 0")
         cypher_r_list.extend(generate_cypher_r("", matched_kvs))
     else:
-        print("len(query_attr.r_type) != 0")
-        for type in query_attr.r_type:
-            print(type)
-            cypher_r_list.extend(generate_cypher_r(type, matched_kvs))
+        for r_type in query_attr.r_type:
+            cypher_r_list.extend(generate_cypher_r(r_type, matched_kvs))
     return cypher_r_list
 
 
@@ -242,9 +239,7 @@ def generate_cypher_r(r_type, kvs):
 
 
 def generate_property_condition(key, value):
-    return "ANY(str IN n.{} WHERE toString(str) =~ '(?i).*{}.*')".format(
-        key, value
-    )
+    return "ANY(str IN n.{} WHERE toString(str) =~ '(?i).*{}.*')".format(key, value)
 
 
 def generate_type_condition(r_type):
@@ -252,7 +247,7 @@ def generate_type_condition(r_type):
 
 
 def generate_label_condition(label):
-    return "'" + label + "'" + " in LABELS(n)"
+    return "'{}' IN LABELS(n)".format(label)
 
 
 def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
@@ -263,44 +258,45 @@ def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
         :param query_attr: CypherAttr
         :param type_name: node / relationship
     """
+    matched_kvs = []
+    keys_in_query = []
+
     if type_name == "n":
-        matched_kvs = []
-        keys = []
         for key in query_attr.n_property_key:
-            keys.append(word_2_attr[key].n_property_key_original)
-        values = query_attr.n_property_value
-        value_2_keys = {}
-        for i in range(len(values)):
-            value_2_keys[values[i]] = query_attr.n_property_value_2_key[i]
-        # print(value_2_keys)
-        for value in value_2_keys:
-            for key in value_2_keys[value]:
-                if key in keys:
+            keys_in_query.append(word_2_attr[key].n_property_key_original)
+        values_in_query = query_attr.n_property_value
+        values_in_query_2_keys = {}
+        for i in range(len(values_in_query)):
+            values_in_query_2_keys[
+                values_in_query[i]
+            ] = query_attr.n_property_value_2_key[i]
+        for value in values_in_query_2_keys:
+            for key in values_in_query_2_keys[value]:
+                if key in keys_in_query:
                     matched_kvs.append([key, value])
 
-        print(matched_kvs)
+        # print(matched_kvs)
         return matched_kvs
     else:
-        matched_kvs = []
-        keys = []
         for key in query_attr.r_property_key:
-            keys.append(word_2_attr[key].r_property_key_original)
-        values = query_attr.r_property_value
-        value_2_keys = {}
-        for i in range(len(values)):
-            value_2_keys[values[i]] = query_attr.r_property_value_2_key[i]
-        # print(value_2_keys)
-        for value in value_2_keys:
-            for key in value_2_keys[value]:
-                if key in keys:
+            keys_in_query.append(word_2_attr[key].r_property_key_original)
+        values_in_query = query_attr.r_property_value
+        values_in_query_2_keys = {}
+        for i in range(len(values_in_query)):
+            values_in_query_2_keys[
+                values_in_query[i]
+            ] = query_attr.r_property_value_2_key[i]
+        for value in values_in_query_2_keys:
+            for key in values_in_query_2_keys[value]:
+                if key in keys_in_query:
                     matched_kvs.append([key, value])
 
-        print(matched_kvs)
+        # print(matched_kvs)
         return matched_kvs
 
 
 def analyze_query(
-        query_tokens: list, word_set_syn, word_set, word_2_attr
+    query_tokens: list, word_set_syn, word_set, word_2_attr
 ) -> CypherAttr:
     """将自然语言字符串分词后的token与数据集词库比对 返回统计信息
 
@@ -326,7 +322,9 @@ def analyze_query(
         for token in matched_word_set:
             if word_2_attr[token].n_type:  # 这个token是node label
                 query_attr.n_type.append(word_2_attr[token].n_type_original)
-            if word_2_attr[token].n_property_key:  # 这个token是node key （保存key原型的话在word_set查不到啊
+            if word_2_attr[
+                token
+            ].n_property_key:  # 这个token是node key （保存key原型的话在 word_set 查不到 attr
                 query_attr.n_property_key.append(token)
             if word_2_attr[token].n_property_value:  # 这个token是node value
                 query_attr.n_property_value.append(token)
@@ -349,7 +347,7 @@ def analyze_query(
 # 不在 word_set_syn 就是不在了
 def do_matching(word_set_syn, word_set, token):
     """`word_set_syn` is superset of `word_set`
-    for `token`，if in `word_set_syn`，add all of its syns;
+    for `token`, if in `word_set_syn`, add all of its syns;
     if `token` itself in `word_set`, add `token`.
 
     Args:
