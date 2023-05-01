@@ -18,6 +18,7 @@ class WordAttribute:
     n_type = False  # 节点的类型
     n_type_original = ""
     n_property_key = False  # 节点property的key
+    n_property_key_original = ""  # 节点property的key
     n_property_value = False  # 节点property的value 及其对应的key
     # 同一个词可能是两个key的value。
     n_property_value_2_key = set()  # 节点property的value对应的key
@@ -25,6 +26,7 @@ class WordAttribute:
     r_type = False  # 关系的类型
     r_type_original = ""
     r_property_key = False  # 关系property的key
+    r_property_key_original = ""  # 节点property的key
     r_property_value = False  # 关系property的value 及其对应的key
     r_property_value_2_key = set()  # 关系property的value对应的key
 
@@ -32,12 +34,14 @@ class WordAttribute:
         self.n_type = False  # 节点的类型
         self.n_type_original = ""
         self.n_property_key = False  # 节点property的key
+        self.n_property_key_original = ""  # 节点property的key
         self.n_property_value = False  # 节点property的value 及其对应的key
         self.n_property_value_2_key = set()  # 节点property的value对应的key
 
         self.r_type = False  # 关系的类型
         self.r_type_original = ""
         self.r_property_key = False  # 关系property的key
+        self.r_property_key_original = ""  # 节点property的key
         self.r_property_value = False  # 关系property的value 及其对应的key
         self.r_property_value_2_key = set()  # 关系property的value对应的key
 
@@ -112,6 +116,9 @@ def process_word_set(tx):
                     word_set_syn[i] = set()
                 word_set_syn[i].add(word)
 
+    # print(word_2_attr["person"])
+    # print(("person" in word_set_syn))
+
     return word_set_syn, word_set, word_2_attr
 
 
@@ -157,8 +164,10 @@ def get_relationship_word_set(tx, word_set, word_2_attr):
 
 
 def do_node_label(labels, word_set, word_2_attr):
+    # print(labels)
     for label in labels:
         labelx = formalize_token(label)
+        # print(labelx)
         word_set.add(labelx)
         if labelx not in word_2_attr:
             word_2_attr[labelx] = WordAttribute()
@@ -189,6 +198,7 @@ def do_node_key_value(value, key, word_set, word_2_attr):
     if keyx not in word_2_attr:
         word_2_attr[keyx] = WordAttribute()
     word_2_attr[keyx].n_property_key = True
+    word_2_attr[keyx].n_property_key_original = key
 
     # value 可能是句子
     # tokenize value, 不保留标点
@@ -205,7 +215,7 @@ def do_node_key_value(value, key, word_set, word_2_attr):
         if value_tokenx not in word_2_attr:
             word_2_attr[value_tokenx] = WordAttribute()
         word_2_attr[value_tokenx].n_property_value = True
-        word_2_attr[value_tokenx].n_property_value_2_key.add(keyx)
+        word_2_attr[value_tokenx].n_property_value_2_key.add(key)
     return word_set, word_2_attr
 
 
@@ -215,6 +225,7 @@ def do_relationship_key_value(value, key, word_set, word_2_attr):
     if keyx not in word_2_attr:
         word_2_attr[keyx] = WordAttribute()
     word_2_attr[keyx].r_property_key = True
+    word_2_attr[keyx].r_property_key_original = key
 
     # value 可能是句子
     # tokenize value, 不保留标点
@@ -231,7 +242,7 @@ def do_relationship_key_value(value, key, word_set, word_2_attr):
         if value_tokenx not in word_2_attr:
             word_2_attr[value_tokenx] = WordAttribute()
         word_2_attr[value_tokenx].r_property_value = True
-        word_2_attr[value_tokenx].r_property_value_2_key.add(keyx)
+        word_2_attr[value_tokenx].r_property_value_2_key.add(key)
     return word_set, word_2_attr
 
 
