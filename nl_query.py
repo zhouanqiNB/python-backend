@@ -100,17 +100,23 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
     query_response = QueryResp()
 
     # query_str = "film publish in 1992"
+    # query_str = "act role carole"
     # MATCH (n: Movie { released: 1992 }) return n
 
-    # 分词, 不保留标点
+    # 分词, 不保留标点, 得到 query_tokens
     tokenizer = RegexpTokenizer(r"\w+")
     query_tokens = tokenizer.tokenize(query_str)
 
+    # 分析 query_tokens，得到 query_attr
     query_attr = analyze_query(query_tokens, word_set_syn, word_set, word_2_attr)
     print(query_attr)
 
-    cypher_query_n_list = pack_cypher_n(query_attr)
-    print(cypher_query_n_list)
+    # 根据 query_attr 得到可能的 query list
+    cypher_query_n_list = pack_cypher_n(query_attr, word_2_attr)
+    cypher_query_r_list = pack_cypher_r(query_attr, word_2_attr)
+    print(cypher_query_r_list)
+    # print(cypher_query_n_list)
+
     # execute every possible query and get results
     for query in cypher_query_n_list:
         records = session.run(query)
@@ -118,8 +124,14 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
         for record in records:
             nodes.append(int(record.get("n").element_id[39:]))
         query_response.query_results.append(QueryResult(query, nodes, []))
+    for query in cypher_query_r_list:
+        records = session.run(query)
+        links = []
+        for record in records:
+            links.append(int(record.get("n").element_id[39:]))
+        query_response.query_results.append(QueryResult(query, [], links))
 
-    print(query_response.to_json())
+    # print(query_response.to_json())
 
     # print(cypher_query_n)
     # cypher_query_r = "MATCH ()-[r]-() "
@@ -132,23 +144,37 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
     # resp = QueryResp()
     # resp.query_results.append(res1)
     # resp.query_results.append(res2)
+    # print(word_set_syn["person"])
 
     return query_response.to_json()
 
 
-def pack_cypher_n(query_attr: CypherAttr) -> list:
+def pack_cypher_r(query_attr: CypherAttr, word_2_attr) -> list:
+    matched_kvs = get_matched_kv("r", query_attr, word_2_attr)
+    print(matched_kvs)
+    cypher_r_list = []
+    if len(query_attr.r_type) == 0:
+        print("len(query_attr.r_type) == 0")
+        cypher_r_list.extend(generate_cypher_r("", matched_kvs))
+    else:
+        print("len(query_attr.r_type) != 0")
+        for type in query_attr.r_type:
+            print(type)
+            cypher_r_list.extend(generate_cypher_r(type, matched_kvs))
+    return cypher_r_list
+
+
+def pack_cypher_n(query_attr: CypherAttr, word_2_attr) -> list:
     """根据统计信息 返回可能的查询节点的cypher语句
 
     Args:
-        query_attr (CypherAttr)
-
-    Returns:
-        list: 可能的cypher语句列表
+        :param query_attr:
+        :param word_2_attr:
     """
     # 第一可能是完全匹配的key和value
 
     # 目前全部按照and来算
-    matched_kvs = get_matched_kv(query_attr)
+    matched_kvs = get_matched_kv("n", query_attr, word_2_attr)
     cypher_n_list = []
     if len(query_attr.n_type) == 0:
         cypher_n_list.extend(generate_cypher_n("", matched_kvs))
@@ -164,67 +190,117 @@ def generate_cypher_n(label, kvs):
 
     if label == "":
         if len(kvs) == 0:
-            cypher = "MATCH (n) RETURN n"
+            cypher = "MATCH (n) RETURN DISTINCT n"
             res.append(cypher)
             return res
         else:
-            cypher = "MATCH (n) WHERE n." + generate_property_condition(
+            cypher = "MATCH (n) WHERE " + generate_property_condition(
                 kvs[0][0], kvs[0][1]
             )
             kvs = kvs[1:]
             for kv in kvs:
-                cypher += " AND n." + generate_property_condition(kv[0], kv[1])
-            cypher += " RETURN n"
+                cypher += " AND " + generate_property_condition(kv[0], kv[1])
+            cypher += " RETURN DISTINCT n"
             res.append(cypher)
             return res
     else:
         # label condition
         cypher = "MATCH (n) WHERE " + generate_label_condition(label)
         for kv in kvs:
-            cypher += " AND n." + generate_property_condition(kv[0], kv[1])
-        cypher += " RETURN n"
+            cypher += " AND " + generate_property_condition(kv[0], kv[1])
+        cypher += " RETURN DISTINCT n"
+        res.append(cypher)
+        return res
+
+
+def generate_cypher_r(r_type, kvs):
+    res = []
+
+    if r_type == "":
+        if len(kvs) == 0:
+            cypher = "MATCH ()-[n]-() RETURN DISTINCT r"
+            res.append(cypher)
+            return res
+        else:
+            cypher = "MATCH ()-[n]-() WHERE " + generate_property_condition(
+                kvs[0][0], kvs[0][1]
+            )
+            kvs = kvs[1:]
+            for kv in kvs:
+                cypher += " AND " + generate_property_condition(kv[0], kv[1])
+            cypher += " RETURN DISTINCT n"
+            res.append(cypher)
+            return res
+    else:
+        # label condition
+        cypher = "MATCH ()-[n]-() WHERE " + generate_type_condition(r_type)
+        for kv in kvs:
+            cypher += " AND " + generate_property_condition(kv[0], kv[1])
+        cypher += " RETURN DISTINCT n"
         res.append(cypher)
         return res
 
 
 def generate_property_condition(key, value):
-    if not value.isnumeric():
-        return key + "=~'(?i).*" + value + ".*'"
-    else:
-        return key + "=" + value
+    return "ANY(str IN n.{} WHERE toString(str) =~ '(?i).*{}.*')".format(
+        key, value
+    )
+
+
+def generate_type_condition(r_type):
+    return "TYPE(n) = '{}'".format(r_type)
 
 
 def generate_label_condition(label):
     return "'" + label + "'" + " in LABELS(n)"
 
 
-def get_matched_kv(query_attr: CypherAttr) -> list:
+def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
     """根据给定的统计信息 返回完全符合的key-value对
 
     Args:
-        query_attr (CypherAttr)
-
-    Returns:
-        list: 返回根据query_attr给出的信息做好的kv对
+        :param word_2_attr:
+        :param query_attr: CypherAttr
+        :param type_name: node / relationship
     """
-    matched_kvs = []
-    keys = query_attr.n_property_key
-    values = query_attr.n_property_value
-    value_2_keys = {}
-    for i in range(len(values)):
-        value_2_keys[values[i]] = query_attr.n_property_value_2_key[i]
-    # print(value_2_keys)
-    for value in value_2_keys:
-        for key in value_2_keys[value]:
-            if key in keys:
-                matched_kvs.append([key, value])
+    if type_name == "n":
+        matched_kvs = []
+        keys = []
+        for key in query_attr.n_property_key:
+            keys.append(word_2_attr[key].n_property_key_original)
+        values = query_attr.n_property_value
+        value_2_keys = {}
+        for i in range(len(values)):
+            value_2_keys[values[i]] = query_attr.n_property_value_2_key[i]
+        # print(value_2_keys)
+        for value in value_2_keys:
+            for key in value_2_keys[value]:
+                if key in keys:
+                    matched_kvs.append([key, value])
 
-    # print(matched_kvs)
-    return matched_kvs
+        print(matched_kvs)
+        return matched_kvs
+    else:
+        matched_kvs = []
+        keys = []
+        for key in query_attr.r_property_key:
+            keys.append(word_2_attr[key].r_property_key_original)
+        values = query_attr.r_property_value
+        value_2_keys = {}
+        for i in range(len(values)):
+            value_2_keys[values[i]] = query_attr.r_property_value_2_key[i]
+        # print(value_2_keys)
+        for value in value_2_keys:
+            for key in value_2_keys[value]:
+                if key in keys:
+                    matched_kvs.append([key, value])
+
+        print(matched_kvs)
+        return matched_kvs
 
 
 def analyze_query(
-    query_tokens: list, word_set_syn, word_set, word_2_attr
+        query_tokens: list, word_set_syn, word_set, word_2_attr
 ) -> CypherAttr:
     """将自然语言字符串分词后的token与数据集词库比对 返回统计信息
 
@@ -236,36 +312,33 @@ def analyze_query(
 
     query_attr = CypherAttr()
 
-    # 对每个token
+    # for every token
     for query_token in query_tokens:
         query_token = formalize_token(query_token)
         # 是否匹配上，匹配上了哪些词
-        matched, matched_word_set = do_matching(word_set_syn, query_token)
-        print(matched_word_set)
+        # 在 word_set_syn 中的词也能匹配上，但是返回的 matched_word_set 必在 word_set 中
+        matched, matched_word_set = do_matching(word_set_syn, word_set, query_token)
+        # print(matched_word_set)
         if not matched:
             continue
+
         # 对这个query_token匹配上的所有word，做统计
         for token in matched_word_set:
-            # 这个token是node label
-            if word_2_attr[token].n_type:
+            if word_2_attr[token].n_type:  # 这个token是node label
                 query_attr.n_type.append(word_2_attr[token].n_type_original)
-            # 这个token是node key
-            if word_2_attr[token].n_property_key:
+            if word_2_attr[token].n_property_key:  # 这个token是node key （保存key原型的话在word_set查不到啊
                 query_attr.n_property_key.append(token)
-            # 这个token是node value
-            if word_2_attr[token].n_property_value:
+            if word_2_attr[token].n_property_value:  # 这个token是node value
                 query_attr.n_property_value.append(token)
                 query_attr.n_property_value_2_key.append(
                     word_2_attr[token].n_property_value_2_key
                 )
-            # 这个token是relationship label
-            if word_2_attr[token].r_type:
+
+            if word_2_attr[token].r_type:  # 这个token是relationship label
                 query_attr.r_type.append(word_2_attr[token].r_type_original)
-            # 这个token是relationship key
-            if word_2_attr[token].r_property_key:
+            if word_2_attr[token].r_property_key:  # 这个token是relationship key
                 query_attr.r_property_key.append(token)
-            # 这个token是relationship value
-            if word_2_attr[token].r_property_value:
+            if word_2_attr[token].r_property_value:  # 这个token是relationship value
                 query_attr.r_property_value.append(token)
                 query_attr.r_property_value_2_key.append(
                     word_2_attr[token].r_property_value_2_key
@@ -273,28 +346,27 @@ def analyze_query(
     return query_attr
 
 
-# 还没引入向量匹配，单纯地in和not in
-def do_matching(word_set_syn, token):
-    """给定某个token和数据库字符集 返回匹配结果
+# 不在 word_set_syn 就是不在了
+def do_matching(word_set_syn, word_set, token):
+    """`word_set_syn` is superset of `word_set`
+    for `token`，if in `word_set_syn`，add all of its syns;
+    if `token` itself in `word_set`, add `token`.
 
     Args:
+        :param word_set:
         :param token:
         :param word_set_syn:
     Returns:
         :return bool: 是否匹配到
         :return matched_word_set: 匹配到的词集
     """
+    if token not in word_set_syn:
+        return False, []
+
     matched_word_set = []
-    # for every token
-    # if token in word_set_syn,
-    if token in word_set_syn:
-        if word_set_syn[token] == set():
-            matched_word_set.append(token)
-            return True, matched_word_set
-        else:
-            # 如果是匹配上同义词了，把同义词的可能原型都返回
-            for i in word_set_syn[token]:
-                matched_word_set.append(i)
-        return True, matched_word_set
-    else:
-        return False, matched_word_set
+    # for every token,if token in word_set_syn
+    for i in word_set_syn[token]:  # push all syns
+        matched_word_set.append(i)
+    if token in word_set:  # push itself
+        matched_word_set.append(token)
+    return True, matched_word_set
