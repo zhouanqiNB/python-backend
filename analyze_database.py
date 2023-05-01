@@ -249,4 +249,7 @@ def do_relationship_key_value(value, key, word_set, word_2_attr):
 def formalize_token(token):
     """词形还原和转化成小写"""
     lemmatizer = WordNetLemmatizer()
-    return lemmatizer.lemmatize(token).lower()
+    after_n = lemmatizer.lemmatize(token, 'n').lower()
+    after_v = lemmatizer.lemmatize(after_n, 'v').lower()
+    after_a = lemmatizer.lemmatize(after_v, 'a').lower()
+    return after_a
