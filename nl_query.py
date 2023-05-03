@@ -112,8 +112,11 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
     print(query_attr)
 
     # 根据 query_attr 得到可能的 query list
-    cypher_query_n_list = pack_cypher_n(query_attr, word_2_attr)
-    cypher_query_r_list = pack_cypher_r(query_attr, word_2_attr)
+    formalized_tokens = []
+    for token in query_tokens:
+        formalized_tokens.append(formalize_token(token))
+    cypher_query_n_list = pack_cypher_n(query_attr, word_2_attr, formalized_tokens)
+    cypher_query_r_list = pack_cypher_r(query_attr, word_2_attr, formalized_tokens)
     # print(cypher_query_n_list)
     # print(cypher_query_r_list)
 
@@ -151,19 +154,19 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
     return query_response.to_json()
 
 
-def pack_cypher_r(query_attr: CypherAttr, word_2_attr) -> list:
+def pack_cypher_r(query_attr: CypherAttr, word_2_attr, tokens) -> list:
     matched_kvs = get_matched_kv("r", query_attr, word_2_attr)
     print(matched_kvs)
     cypher_r_list = []
     if len(query_attr.r_type) == 0:
-        cypher_r_list.extend(generate_cypher_r("", matched_kvs))
+        cypher_r_list.extend(generate_cypher_r("", matched_kvs, tokens))
     else:
         for r_type in query_attr.r_type:
-            cypher_r_list.extend(generate_cypher_r(r_type, matched_kvs))
+            cypher_r_list.extend(generate_cypher_r(r_type, matched_kvs, tokens))
     return cypher_r_list
 
 
-def pack_cypher_n(query_attr: CypherAttr, word_2_attr) -> list:
+def pack_cypher_n(query_attr: CypherAttr, word_2_attr, tokens) -> list:
     """根据统计信息 返回可能的查询节点的cypher语句
 
     Args:
@@ -176,15 +179,15 @@ def pack_cypher_n(query_attr: CypherAttr, word_2_attr) -> list:
     matched_kvs = get_matched_kv("n", query_attr, word_2_attr)
     cypher_n_list = []
     if len(query_attr.n_type) == 0:
-        cypher_n_list.extend(generate_cypher_n("", matched_kvs))
+        cypher_n_list.extend(generate_cypher_n("", matched_kvs, tokens))
     else:
         for label in query_attr.n_type:
-            cypher_n_list.extend(generate_cypher_n(label, matched_kvs))
+            cypher_n_list.extend(generate_cypher_n(label, matched_kvs, tokens))
 
     return cypher_n_list
 
 
-def generate_cypher_n(label, kvs):
+def generate_cypher_n(label, kvs, tokens):
     res = []
 
     if label == "":
@@ -198,7 +201,11 @@ def generate_cypher_n(label, kvs):
             )
             kvs = kvs[1:]
             for kv in kvs:
-                cypher += " AND " + generate_property_condition(kv[0], kv[1])
+                # 默认是与
+                if "or" in tokens:
+                    cypher += " OR " + generate_property_condition(kv[0], kv[1])
+                else:
+                    cypher += " AND " + generate_property_condition(kv[0], kv[1])
             cypher += " RETURN DISTINCT n"
             res.append(cypher)
             return res
@@ -206,13 +213,16 @@ def generate_cypher_n(label, kvs):
         # label condition
         cypher = "MATCH (n) WHERE " + generate_label_condition(label)
         for kv in kvs:
-            cypher += " AND " + generate_property_condition(kv[0], kv[1])
+            if "or" in tokens:
+                cypher += " OR " + generate_property_condition(kv[0], kv[1])
+            else:
+                cypher += " AND " + generate_property_condition(kv[0], kv[1])
         cypher += " RETURN DISTINCT n"
         res.append(cypher)
         return res
 
 
-def generate_cypher_r(r_type, kvs):
+def generate_cypher_r(r_type, kvs, tokens):
     res = []
 
     if r_type == "":
@@ -226,7 +236,10 @@ def generate_cypher_r(r_type, kvs):
             )
             kvs = kvs[1:]
             for kv in kvs:
-                cypher += " AND " + generate_property_condition(kv[0], kv[1])
+                if "or" in tokens:
+                    cypher += " OR " + generate_property_condition(kv[0], kv[1])
+                else:
+                    cypher += " AND " + generate_property_condition(kv[0], kv[1])
             cypher += " RETURN DISTINCT n"
             res.append(cypher)
             return res
@@ -234,7 +247,10 @@ def generate_cypher_r(r_type, kvs):
         # label condition
         cypher = "MATCH ()-[n]-() WHERE " + generate_type_condition(r_type)
         for kv in kvs:
-            cypher += " AND " + generate_property_condition(kv[0], kv[1])
+            if "or" in tokens:
+                cypher += " OR " + generate_property_condition(kv[0], kv[1])
+            else:
+                cypher += " AND " + generate_property_condition(kv[0], kv[1])
         cypher += " RETURN DISTINCT n"
         res.append(cypher)
         return res
@@ -276,6 +292,11 @@ def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
             for key in values_in_query_2_keys[value]:
                 if key in keys_in_query:
                     matched_kvs.append([key, value])
+        # 没有match的情况下才只做value匹配
+        if len(matched_kvs) == 0:
+            for value in values_in_query_2_keys:
+                for key in values_in_query_2_keys[value]:
+                    matched_kvs.append([key, value])
 
         # print(matched_kvs)
         return matched_kvs
@@ -292,7 +313,12 @@ def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
             for key in values_in_query_2_keys[value]:
                 if key in keys_in_query:
                     matched_kvs.append([key, value])
-
+        # 没有match的情况下才只做value匹配
+        if len(matched_kvs) == 0:
+            for value in values_in_query_2_keys:
+                for key in values_in_query_2_keys[value]:
+                    matched_kvs.append([key, value])
+                    
         # print(matched_kvs)
         return matched_kvs
 
