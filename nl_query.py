@@ -201,11 +201,11 @@ def generate_cypher_n(label, kvs, tokens):
             )
             kvs = kvs[1:]
             for kv in kvs:
-                # 默认是与
-                if "or" in tokens:
-                    cypher += " OR " + generate_property_condition(kv[0], kv[1])
-                else:
+                # 默认是或，可以查出更多结果
+                if "and" in tokens:
                     cypher += " AND " + generate_property_condition(kv[0], kv[1])
+                else:
+                    cypher += " OR " + generate_property_condition(kv[0], kv[1])
             cypher += " RETURN DISTINCT n"
             res.append(cypher)
             return res
@@ -213,10 +213,10 @@ def generate_cypher_n(label, kvs, tokens):
         # label condition
         cypher = "MATCH (n) WHERE " + generate_label_condition(label)
         for kv in kvs:
-            if "or" in tokens:
-                cypher += " OR " + generate_property_condition(kv[0], kv[1])
-            else:
+            if "and" in tokens:
                 cypher += " AND " + generate_property_condition(kv[0], kv[1])
+            else:
+                cypher += " OR " + generate_property_condition(kv[0], kv[1])
         cypher += " RETURN DISTINCT n"
         res.append(cypher)
         return res
@@ -236,10 +236,10 @@ def generate_cypher_r(r_type, kvs, tokens):
             )
             kvs = kvs[1:]
             for kv in kvs:
-                if "or" in tokens:
-                    cypher += " OR " + generate_property_condition(kv[0], kv[1])
-                else:
+                if "and" in tokens:
                     cypher += " AND " + generate_property_condition(kv[0], kv[1])
+                else:
+                    cypher += " OR " + generate_property_condition(kv[0], kv[1])
             cypher += " RETURN DISTINCT n"
             res.append(cypher)
             return res
@@ -247,10 +247,10 @@ def generate_cypher_r(r_type, kvs, tokens):
         # label condition
         cypher = "MATCH ()-[n]-() WHERE " + generate_type_condition(r_type)
         for kv in kvs:
-            if "or" in tokens:
-                cypher += " OR " + generate_property_condition(kv[0], kv[1])
-            else:
+            if "and" in tokens:
                 cypher += " AND " + generate_property_condition(kv[0], kv[1])
+            else:
+                cypher += " OR " + generate_property_condition(kv[0], kv[1])
         cypher += " RETURN DISTINCT n"
         res.append(cypher)
         return res
@@ -318,7 +318,7 @@ def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
             for value in values_in_query_2_keys:
                 for key in values_in_query_2_keys[value]:
                     matched_kvs.append([key, value])
-                    
+
         # print(matched_kvs)
         return matched_kvs
 
