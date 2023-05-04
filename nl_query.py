@@ -201,7 +201,7 @@ def generate_cypher_n(label, kvs, tokens):
             )
             kvs = kvs[1:]
             for kv in kvs:
-                # 默认是或，可以查出更多结果
+                # 默认是或，可以查出更多结果，但如果只是label那还是and吧
                 if "and" in tokens:
                     cypher += " AND " + generate_property_condition(kv[0], kv[1])
                 else:
@@ -212,11 +212,13 @@ def generate_cypher_n(label, kvs, tokens):
     else:
         # label condition
         cypher = "MATCH (n) WHERE " + generate_label_condition(label)
+        first = True
         for kv in kvs:
-            if "and" in tokens:
+            if "and" in tokens or first:
                 cypher += " AND " + generate_property_condition(kv[0], kv[1])
             else:
                 cypher += " OR " + generate_property_condition(kv[0], kv[1])
+            first = False
         cypher += " RETURN DISTINCT n"
         res.append(cypher)
         return res
@@ -246,11 +248,13 @@ def generate_cypher_r(r_type, kvs, tokens):
     else:
         # label condition
         cypher = "MATCH ()-[n]-() WHERE " + generate_type_condition(r_type)
+        first = True
         for kv in kvs:
-            if "and" in tokens:
+            if "and" in tokens or first:
                 cypher += " AND " + generate_property_condition(kv[0], kv[1])
             else:
                 cypher += " OR " + generate_property_condition(kv[0], kv[1])
+            first = False
         cypher += " RETURN DISTINCT n"
         res.append(cypher)
         return res
