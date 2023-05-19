@@ -4,26 +4,26 @@ import json
 
 
 class CypherAttr:
-    n_type = []  # 节点的类型，还原过的
-    n_property_key = []  # 节点property的key
-    n_property_value = []  # 节点property的value 及其对应的key
-    n_property_value_2_key = []  # 节点property的value 及其对应的key
+    n_type = set()  # 节点的类型，还原过的
+    n_property_key = set()  # 节点property的key
+    n_property_value = set()  # 节点property的value 及其对应的key
+    n_property_value_2_key = {}  # 节点property的value 及其对应的key
 
-    r_type = []  # 关系的类型
-    r_property_key = []  # 关系property的key
-    r_property_value = []  # 关系property的value 及其对应的key
-    r_property_value_2_key = []  # 关系property的value 及其对应的key
+    r_type = set()  # 关系的类型
+    r_property_key = set()  # 关系property的key
+    r_property_value = set()  # 关系property的value 及其对应的key
+    r_property_value_2_key = {}  # 关系property的value 及其对应的key
 
     def __init__(self) -> None:
-        self.n_type = []  # 节点的类型
-        self.n_property_key = []  # 节点property的key
-        self.n_property_value = []  # 节点property的value 及其对应的key
-        self.n_property_value_2_key = []  # 节点property的value 及其对应的key
+        self.n_type = set()  # 节点的类型
+        self.n_property_key = set()  # 节点property的key
+        self.n_property_value = set()  # 节点property的value 及其对应的key
+        self.n_property_value_2_key = {}  # 节点property的value 及其对应的key
 
-        self.r_type = []  # 关系的类型
-        self.r_property_key = []  # 关系property的key
-        self.r_property_value = []  # 关系property的value 及其对应的key
-        self.r_property_value_2_key = []  # 关系property的value 及其对应的key
+        self.r_type = set()  # 关系的类型
+        self.r_property_key = set()  # 关系property的key
+        self.r_property_value = set()  # 关系property的value 及其对应的key
+        self.r_property_value_2_key = {}  # 关系property的value 及其对应的key
 
     def __str__(self):
         return (
@@ -112,9 +112,10 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
     print(query_attr)
 
     # 根据 query_attr 得到可能的 query list
-    formalized_tokens = []
+    formalized_tokens = []  # 这个没啥用，主要是用来判断有无AND OR
     for token in query_tokens:
         formalized_tokens.append(formalize_token(token))
+
     cypher_query_n_list = pack_cypher_n(query_attr, word_2_attr, formalized_tokens)
     cypher_query_r_list = pack_cypher_r(query_attr, word_2_attr, formalized_tokens)
     # print(cypher_query_n_list)
@@ -133,23 +134,6 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
         for record in records:
             links.append(int(record.get("n").element_id[39:]))
         query_response.query_results.append(QueryResult(query, [], links))
-
-    # print(query_response.to_json())
-
-    # print(cypher_query_n)
-    # cypher_query_r = "MATCH ()-[r]-() "
-
-    # print(word_2_attr["tom"])
-
-    # res1 = QueryResult("test1", [1], [10])
-    # res2 = QueryResult("test2", [2, 3], [6, 8])
-
-    # resp = QueryResp()
-    # resp.query_results.append(res1)
-    # resp.query_results.append(res2)
-    # print(word_set_syn["person"])
-
-    # print(word_2_attr["albert"])
 
     return query_response.to_json()
 
@@ -170,6 +154,7 @@ def pack_cypher_n(query_attr: CypherAttr, word_2_attr, tokens) -> list:
     """根据统计信息 返回可能的查询节点的cypher语句
 
     Args:
+        :param tokens:
         :param query_attr:
         :param word_2_attr:
     """
@@ -288,10 +273,8 @@ def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
             keys_in_query.append(word_2_attr[key].n_property_key_original)
         values_in_query = query_attr.n_property_value
         values_in_query_2_keys = {}
-        for i in range(len(values_in_query)):
-            values_in_query_2_keys[
-                values_in_query[i]
-            ] = query_attr.n_property_value_2_key[i]
+        for i in values_in_query:
+            values_in_query_2_keys[i] = query_attr.n_property_value_2_key[i]
         for value in values_in_query_2_keys:
             for key in values_in_query_2_keys[value]:
                 if key in keys_in_query:
@@ -309,10 +292,8 @@ def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
             keys_in_query.append(word_2_attr[key].r_property_key_original)
         values_in_query = query_attr.r_property_value
         values_in_query_2_keys = {}
-        for i in range(len(values_in_query)):
-            values_in_query_2_keys[
-                values_in_query[i]
-            ] = query_attr.r_property_value_2_key[i]
+        for i in values_in_query:
+            values_in_query_2_keys[i] = query_attr.r_property_value_2_key[i]
         for value in values_in_query_2_keys:
             for key in values_in_query_2_keys[value]:
                 if key in keys_in_query:
@@ -353,26 +334,22 @@ def analyze_query(
         # 对这个query_token匹配上的所有word，做统计
         for token in matched_word_set:
             if word_2_attr[token].n_type:  # 这个token是node label
-                query_attr.n_type.append(word_2_attr[token].n_type_original)
+                query_attr.n_type.add(word_2_attr[token].n_type_original)
             if word_2_attr[
                 token
             ].n_property_key:  # 这个token是node key （保存key原型的话在 word_set 查不到 attr
-                query_attr.n_property_key.append(token)
+                query_attr.n_property_key.add(token)
             if word_2_attr[token].n_property_value:  # 这个token是node value
-                query_attr.n_property_value.append(token)
-                query_attr.n_property_value_2_key.append(
-                    word_2_attr[token].n_property_value_2_key
-                )
+                query_attr.n_property_value.add(token)
+                query_attr.n_property_value_2_key[token] = word_2_attr[token].n_property_value_2_key
 
             if word_2_attr[token].r_type:  # 这个token是relationship label
-                query_attr.r_type.append(word_2_attr[token].r_type_original)
+                query_attr.r_type.add(word_2_attr[token].r_type_original)
             if word_2_attr[token].r_property_key:  # 这个token是relationship key
-                query_attr.r_property_key.append(token)
+                query_attr.r_property_key.add(token)
             if word_2_attr[token].r_property_value:  # 这个token是relationship value
-                query_attr.r_property_value.append(token)
-                query_attr.r_property_value_2_key.append(
-                    word_2_attr[token].r_property_value_2_key
-                )
+                query_attr.r_property_value.add(token)
+                query_attr.r_property_value_2_key[token] = word_2_attr[token].r_property_value_2_key
     return query_attr
 
 
