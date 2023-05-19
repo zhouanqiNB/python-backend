@@ -118,8 +118,10 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
 
     cypher_query_n_list = pack_cypher_n(query_attr, word_2_attr, formalized_tokens)
     cypher_query_r_list = pack_cypher_r(query_attr, word_2_attr, formalized_tokens)
-    # print(cypher_query_n_list)
-    # print(cypher_query_r_list)
+    cypher_query_nr_list = pack_cypher_nr(query_attr, word_2_attr, formalized_tokens)
+    print(cypher_query_n_list)
+    print(cypher_query_r_list)
+    print(cypher_query_nr_list)
 
     # execute every possible query and get results
     for query in cypher_query_n_list:
@@ -134,6 +136,14 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
         for record in records:
             links.append(int(record.get("n").element_id[39:]))
         query_response.query_results.append(QueryResult(query, [], links))
+    for query in cypher_query_nr_list:
+        records = session.run(query)
+        nodes = []
+        links = []
+        for record in records:
+            nodes.append(int(record.get("n").element_id[39:]))
+            links.append(int(record.get("r").element_id[39:]))
+        query_response.query_results.append(QueryResult(query, nodes, links))
 
     return query_response.to_json()
 
@@ -142,12 +152,56 @@ def pack_cypher_r(query_attr: CypherAttr, word_2_attr, tokens) -> list:
     matched_kvs = get_matched_kv("r", query_attr, word_2_attr)
     print(matched_kvs)
     cypher_r_list = []
+
+    # 如果没有提到r的标签
     if len(query_attr.r_type) == 0:
+        # 如果提到了超过两种node的标签A,B，那么认为是想要A型node连接B型node的关系
+        if len(query_attr.n_type) >= 2:
+            if len(matched_kvs) == 0:
+                n_types = list(query_attr.n_type)
+                for i in range(len(n_types) - 1):
+                    for j in range(i + 1, len(n_types)):
+                        cypher_r_list.append(generate_relationship_of_ab_node(n_types[i], n_types[j]))
+            else:
+                n_types = list(query_attr.n_type)
+                for i in range(len(n_types) - 1):
+                    for j in range(i + 1, len(n_types)):
+                        # 这里条件已经不少了，所以对matched_kvs严格一点，指的是必须key和value完全匹配
+                        cypher_r_list.append(
+                            generate_relationship_of_ab_node_with_kvs(n_types[i], n_types[j],
+                                                                      get_matched_kv("r", query_attr, word_2_attr,
+                                                                                     True)))
         cypher_r_list.extend(generate_cypher_r("", matched_kvs, tokens))
     else:
         for r_type in query_attr.r_type:
             cypher_r_list.extend(generate_cypher_r(r_type, matched_kvs, tokens))
+
     return cypher_r_list
+
+
+def generate_relationship_of_ab_node(type_a, type_b):
+    res = "MATCH (n1)-[n]-(n2) WHERE " + generate_label_condition(type_a, "n1") + "AND" + generate_label_condition(
+        type_b, "n2")
+    res += " RETURN n"
+    return res
+
+
+def generate_relationship_of_ab_node_with_kvs(type_a, type_b, matched_kvs):
+    res = "MATCH (n1)-[n]-(n2) WHERE " + generate_label_condition(type_a, "n1") + "AND" + generate_label_condition(
+        type_b, "n2") + "AND"
+
+    res += " ("
+    first = True
+    for kv in matched_kvs:
+        if not first:
+            res += "OR"
+        else:
+            first = False
+        res += generate_property_condition(kv[0], kv[1])
+    res += ")"
+
+    res += " RETURN n"
+    return res
 
 
 def pack_cypher_n(query_attr: CypherAttr, word_2_attr, tokens) -> list:
@@ -170,6 +224,71 @@ def pack_cypher_n(query_attr: CypherAttr, word_2_attr, tokens) -> list:
             cypher_n_list.extend(generate_cypher_n(label, matched_kvs, tokens))
 
     return cypher_n_list
+
+
+def pack_cypher_nr(query_attr: CypherAttr, word_2_attr, tokens) -> list:
+    res = []
+    n_matched_kvs = get_matched_kv("n", query_attr, word_2_attr, True)
+    r_matched_kvs = get_matched_kv("r", query_attr, word_2_attr, True)
+    # 就是说只有节点类型和边的类型，那猜测是某种节点所有连接的这种类型的边。
+    if len(query_attr.n_type) == 0 and len(query_attr.r_type) == 0:
+        query = "MATCH (n)-[r]-() "
+        if n_matched_kvs != [] or r_matched_kvs != []:
+            query += "WHERE "
+        first = True
+        for nkv in n_matched_kvs:
+            if first:
+                first = False
+            else:
+                query += " OR "
+            query += generate_property_condition(nkv[0], nkv[1], "n")
+        for rkv in r_matched_kvs:
+            if first:
+                first = False
+            else:
+                query += " OR "
+            query += generate_property_condition(rkv[0], rkv[1], "r")
+        query += " RETURN n,r"
+        res.append(query)
+
+    n_matched_kvs = get_matched_kv("n", query_attr, word_2_attr)
+    r_matched_kvs = get_matched_kv("r", query_attr, word_2_attr)
+    if len(query_attr.r_type) != 0:
+        query = "MATCH (n)-[r]-() "
+        query += "WHERE "
+
+        # r_type内部是or关系
+        query += "("
+        first = True
+        for i in query_attr.r_type:
+            if first:
+                first = False
+            else:
+                query += " OR "
+            query += generate_type_condition(i, "r")
+        query += ")"
+
+        # kv内部是 or 关系
+        query += "AND ("
+        first = True
+        for nkv in n_matched_kvs:
+            if first:
+                first = False
+            else:
+                query += " OR "
+            query += generate_property_condition(nkv[0], nkv[1], "n")
+        for rkv in r_matched_kvs:
+            if first:
+                first = False
+            else:
+                query += " OR "
+            query += generate_property_condition(rkv[0], rkv[1], "r")
+        query += ")"
+
+        query += " RETURN n,r"
+        res.append(query)
+
+    return res
 
 
 def generate_cypher_n(label, kvs, tokens):
@@ -245,19 +364,19 @@ def generate_cypher_r(r_type, kvs, tokens):
         return res
 
 
-def generate_property_condition(key, value):
-    return "ANY(str IN n.{} WHERE toString(str) =~ '(?i).*{}.*')".format(key, value)
+def generate_property_condition(key, value, ele_name="n"):
+    return "ANY(str IN {}.{} WHERE toString(str) =~ '(?i).*{}.*') ".format(ele_name, key, value)
 
 
-def generate_type_condition(r_type):
-    return "TYPE(n) = '{}'".format(r_type)
+def generate_type_condition(r_type, ele_name="n"):
+    return "TYPE({}) = '{}' ".format(ele_name, r_type)
 
 
-def generate_label_condition(label):
-    return "'{}' IN LABELS(n)".format(label)
+def generate_label_condition(label, ele_name="n"):
+    return "'{}' IN LABELS({}) ".format(label, ele_name)
 
 
-def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
+def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr, is_strict=False) -> list:
     """根据给定的统计信息 返回完全符合的key-value对
 
     Args:
@@ -279,11 +398,12 @@ def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
             for key in values_in_query_2_keys[value]:
                 if key in keys_in_query:
                     matched_kvs.append([key, value])
-        # 没有match的情况下才只做value匹配
-        if len(matched_kvs) == 0:
-            for value in values_in_query_2_keys:
-                for key in values_in_query_2_keys[value]:
-                    matched_kvs.append([key, value])
+        # 没有match的情况，而且不严格下才只做value匹配
+        if not is_strict:
+            if len(matched_kvs) == 0:
+                for value in values_in_query_2_keys:
+                    for key in values_in_query_2_keys[value]:
+                        matched_kvs.append([key, value])
 
         # print(matched_kvs)
         return matched_kvs
@@ -298,11 +418,12 @@ def get_matched_kv(type_name, query_attr: CypherAttr, word_2_attr) -> list:
             for key in values_in_query_2_keys[value]:
                 if key in keys_in_query:
                     matched_kvs.append([key, value])
-        # 没有match的情况下才只做value匹配
-        if len(matched_kvs) == 0:
-            for value in values_in_query_2_keys:
-                for key in values_in_query_2_keys[value]:
-                    matched_kvs.append([key, value])
+        # 没有match的情况，而且不严格下才只做value匹配
+        if not is_strict:
+            if len(matched_kvs) == 0:
+                for value in values_in_query_2_keys:
+                    for key in values_in_query_2_keys[value]:
+                        matched_kvs.append([key, value])
 
         # print(matched_kvs)
         return matched_kvs
