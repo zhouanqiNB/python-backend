@@ -57,5 +57,6 @@ def nl_query():
 
 if __name__ == "__main__":
     # 这个在每次重启需要跑一次
+    CORS(app, supports_credentials=True)
     CORS(app, resources=r'/*')
     app.run(host="0.0.0.0", threaded=True, debug=False)

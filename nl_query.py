@@ -143,6 +143,7 @@ def nl_query_handler(session, query_str, word_set_syn, word_set, word_2_attr) ->
         for record in records:
             nodes.append(int(record.get("n").element_id[39:]))
             links.append(int(record.get("r").element_id[39:]))
+            nodes.append(int(record.get("n2").element_id[39:]))
         query_response.query_results.append(QueryResult(query, nodes, links))
 
     return query_response.to_json()
@@ -232,7 +233,7 @@ def pack_cypher_nr(query_attr: CypherAttr, word_2_attr, tokens) -> list:
     r_matched_kvs = get_matched_kv("r", query_attr, word_2_attr, True)
     # 就是说只有节点类型和边的类型，那猜测是某种节点所有连接的这种类型的边。
     if len(query_attr.n_type) == 0 and len(query_attr.r_type) == 0:
-        query = "MATCH (n)-[r]-() "
+        query = "MATCH (n)-[r]-(n2) "
         if n_matched_kvs != [] or r_matched_kvs != []:
             query += "WHERE "
         first = True
@@ -248,13 +249,13 @@ def pack_cypher_nr(query_attr: CypherAttr, word_2_attr, tokens) -> list:
             else:
                 query += " OR "
             query += generate_property_condition(rkv[0], rkv[1], "r")
-        query += " RETURN n,r"
+        query += " RETURN n,r,n2"
         res.append(query)
 
     n_matched_kvs = get_matched_kv("n", query_attr, word_2_attr)
     r_matched_kvs = get_matched_kv("r", query_attr, word_2_attr)
     if len(query_attr.r_type) != 0:
-        query = "MATCH (n)-[r]-() "
+        query = "MATCH (n)-[r]-(n2) "
         query += "WHERE "
 
         # r_type内部是or关系
@@ -285,7 +286,7 @@ def pack_cypher_nr(query_attr: CypherAttr, word_2_attr, tokens) -> list:
             query += generate_property_condition(rkv[0], rkv[1], "r")
         query += ")"
 
-        query += " RETURN n,r"
+        query += " RETURN n,r,n2"
         res.append(query)
 
     return res
