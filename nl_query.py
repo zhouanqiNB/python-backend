@@ -188,18 +188,23 @@ def generate_relationship_of_ab_node(type_a, type_b):
 
 
 def generate_relationship_of_ab_node_with_kvs(type_a, type_b, matched_kvs):
-    res = "MATCH (n1)-[n]-(n2) WHERE " + generate_label_condition(type_a, "n1") + "AND" + generate_label_condition(
-        type_b, "n2") + "AND"
+    res=""
+    if len(matched_kvs)==0:
+        res += "MATCH (n1)-[n]-(n2) WHERE " + generate_label_condition(type_a, "n1") + "AND" + generate_label_condition(
+            type_b, "n2")
+    else:
+        res += "MATCH (n1)-[n]-(n2) WHERE " + generate_label_condition(type_a, "n1") + "AND" + generate_label_condition(
+            type_b, "n2") + "AND"
 
-    res += " ("
-    first = True
-    for kv in matched_kvs:
-        if not first:
-            res += "OR"
-        else:
-            first = False
-        res += generate_property_condition(kv[0], kv[1])
-    res += ")"
+        res += " ("
+        first = True
+        for kv in matched_kvs:
+            if not first:
+                res += "OR"
+            else:
+                first = False
+            res += generate_property_condition(kv[0], kv[1])
+        res += ")"
 
     res += " RETURN n"
     return res
@@ -269,6 +274,10 @@ def pack_cypher_nr(query_attr: CypherAttr, word_2_attr, tokens) -> list:
             query += generate_type_condition(i, "r")
         query += ")"
 
+        if len(n_matched_kvs)==0 and len(r_matched_kvs)==0:
+            query += " RETURN n,r,n2"
+            res.append(query)
+            return res
         # kv内部是 or 关系
         query += "AND ("
         first = True
